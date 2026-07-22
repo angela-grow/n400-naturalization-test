@@ -2,7 +2,7 @@
 
 A free, static study app for the 2025 version of the USCIS civics test used in the N-400 naturalization interview. Covers all 128 official questions and answers from USCIS Form M-1778.
 
-**[Live app](https://angela-grow.github.io/n400-naturalization-test/)** *(enable GitHub Pages in repo settings to activate this link)*
+**[Live app](https://angela-grow.github.io/n400-naturalization-test/)** 
 
 ## Features
 
@@ -11,16 +11,6 @@ A free, static study app for the 2025 version of the USCIS civics test used in t
 - **65/20 Test** - 10 random questions from the 20 starred questions for applicants 65+ with 20+ years as a lawful permanent resident, need 6 correct to pass
 - **Flashcards** - endless shuffled drill mode
 - **Stats** - tracks your accuracy per question in `localStorage` and highlights your most-missed questions
-
-No backend, no build step, no dependencies - just static HTML/CSS/JS.
-
-## Running locally
-
-```
-python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000`.
 
 ## Source data
 
