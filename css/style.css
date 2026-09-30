@@ -233,8 +233,6 @@ main.wrap { padding-top: 24px; padding-bottom: 64px; min-height: 60vh; }
   cursor: pointer;
 }
 .chip-btn:hover { border-color: var(--primary); color: var(--primary); }
-.chip-btn.listening { border-color: var(--danger); color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(200, 16, 46, 0.15); } }
 
 .check-label {
   display: inline-flex;
@@ -425,7 +423,6 @@ main.wrap { padding-top: 24px; padding-bottom: 64px; min-height: 60vh; }
 }
 .question-translation { color: var(--text-muted); font-size: 1rem; margin: 0 auto 6px; max-width: 34em; }
 .voice-tools { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
-.heard { font-size: 0.92rem; color: var(--text-muted); font-style: italic; margin: 6px auto 0; max-width: 34em; }
 .quiz-card > .btn { margin-top: 18px; }
 .answer-reveal {
   text-align: left;
@@ -436,9 +433,6 @@ main.wrap { padding-top: 24px; padding-bottom: 64px; min-height: 60vh; }
   max-width: 540px;
 }
 .answer-reveal ul { margin: 6px 0 0; padding-left: 20px; }
-.match-hint { margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
-.match-hint.ok { color: var(--success); }
-.match-hint.maybe { color: var(--text-muted); font-weight: 400; }
 
 .deck-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .segmented {
