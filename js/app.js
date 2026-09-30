@@ -110,7 +110,6 @@
     cards: '<rect x="3" y="7" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
     play: '<path d="M7 4.5v15l12-7.5z"/>',
     volume: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
-    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   };
@@ -161,8 +160,6 @@
 
   // ---------- Speech ----------
   const canSpeak = "speechSynthesis" in window;
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let activeRecognition = null;
 
   function englishVoice() {
     const voices = speechSynthesis.getVoices();
@@ -182,73 +179,20 @@
   }
   function stopSpeech() {
     if (canSpeak) speechSynthesis.cancel();
-    if (activeRecognition) {
-      try { activeRecognition.abort(); } catch (e) { /* already stopped */ }
-      activeRecognition = null;
-    }
   }
 
-  const FILLER = new Set(["the", "a", "an", "of", "to", "and", "is", "it", "in", "for", "on", "by"]);
-  function tokens(s) {
-    return s.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter((w) => w && !FILLER.has(w));
-  }
-  // Rough hint only: every essential word of some acceptable answer appears in what the user said.
-  function soundsLikeMatch(said, answers) {
-    const heard = new Set(tokens(said));
-    return answers.some((a) => {
-      const core = tokens(a.replace(/\([^)]*\)/g, " "));
-      return core.length > 0 && core.every((w) => heard.has(w));
-    });
-  }
-
-  // Question block shared by the test runner and flashcards: text, translation, listen + speak-answer controls.
-  function questionBlock(item, answerBox) {
+  // Question block shared by the test runner and flashcards: text, translation, listen control.
+  function questionBlock(item) {
     const frag = el("div", { class: "question-block" });
     frag.appendChild(el("div", { class: "cat-tag" }, [catLabel(item.category)]));
     frag.appendChild(el("div", { class: "question-text", lang: "en" }, [item.question]));
     const tr = translatedQuestion(item);
     if (tr) frag.appendChild(el("div", { class: "question-translation" }, [tr]));
-
-    const heard = el("div", { class: "heard", hidden: true });
-    const tools = el("div", { class: "voice-tools" });
     if (canSpeak) {
-      tools.appendChild(el("button", { class: "chip-btn", type: "button", onclick: () => speak(item.question) }, [icon("volume"), t("hear")]));
+      frag.appendChild(el("div", { class: "voice-tools" }, [
+        el("button", { class: "chip-btn", type: "button", onclick: () => speak(item.question) }, [icon("volume"), t("hear")]),
+      ]));
     }
-    if (Recognition) {
-      const micBtn = el("button", { class: "chip-btn", type: "button" }, [icon("mic"), t("sayAnswer")]);
-      micBtn.addEventListener("click", () => {
-        if (activeRecognition) { activeRecognition.stop(); return; }
-        if (canSpeak) speechSynthesis.cancel();
-        const rec = new Recognition();
-        rec.lang = "en-US";
-        rec.interimResults = true;
-        let said = "";
-        rec.onresult = (e) => {
-          said = Array.from(e.results).map((r) => r[0].transcript).join(" ");
-          heard.hidden = false;
-          heard.textContent = t("youSaid", { text: said });
-        };
-        rec.onerror = (e) => {
-          heard.hidden = false;
-          heard.textContent = e.error === "not-allowed" ? t("micBlocked") : t("micError");
-        };
-        rec.onend = () => {
-          activeRecognition = null;
-          micBtn.classList.remove("listening");
-          micBtn.lastChild.textContent = t("sayAnswer");
-          if (said && answerBox) answerBox.dispatchEvent(new CustomEvent("heard", { detail: said }));
-        };
-        activeRecognition = rec;
-        micBtn.classList.add("listening");
-        micBtn.lastChild.textContent = t("listening");
-        heard.hidden = false;
-        heard.textContent = t("speakNow");
-        rec.start();
-      });
-      tools.appendChild(micBtn);
-    }
-    if (tools.childNodes.length) frag.appendChild(tools);
-    frag.appendChild(heard);
     return frag;
   }
 
@@ -258,15 +202,6 @@
     box.appendChild(el("ul", { lang: "en" }, item.answers.map((a) => el("li", {}, [a]))));
     if (item.dynamic) box.appendChild(dynamicNote());
     if (settings.lang !== "en") box.appendChild(el("div", { class: "muted small" }, [t("answerInEnglish")]));
-    const hint = el("div", { class: "match-hint", hidden: true });
-    box.appendChild(hint);
-    box.addEventListener("heard", (e) => {
-      if (item.dynamic) return;
-      hint.hidden = false;
-      const ok = soundsLikeMatch(e.detail, item.answers);
-      hint.className = "match-hint " + (ok ? "ok" : "maybe");
-      hint.textContent = ok ? t("hintMatch") : t("hintNoMatch");
-    });
     return box;
   }
 
@@ -458,7 +393,7 @@
       wrap.appendChild(
         el("div", { class: "card intro-card" }, [
           el("h2", {}, [t("testTitle")]),
-          el("p", { class: "muted" }, [t("rulePass", { pass: cfg.passCount })]),
+          el("p", { class: "muted" }, [t("rulePass", { pass: cfg.passCount }), " ", t("sayAloud")]),
           canSpeak ? el("label", { class: "check-label" }, [autoRead, t("autoRead")]) : null,
           el("div", { class: "btn-row" }, [
             el("button", { class: "btn btn-lg", onclick: startQuiz }, [icon("play"), t("startTest")]),
@@ -490,7 +425,7 @@
 
       const card = el("div", { class: "card quiz-card" });
       const answerBox = answerReveal(item);
-      card.appendChild(questionBlock(item, answerBox));
+      card.appendChild(questionBlock(item));
 
       const revealBtn = el("button", { class: "btn btn-lg secondary", onclick: reveal }, [t("showAnswer")]);
       const gradeRow = el("div", { class: "btn-row center", hidden: true }, [
@@ -620,7 +555,7 @@
 
       const card = el("div", { class: "card quiz-card" });
       const answerBox = answerReveal(item);
-      card.appendChild(questionBlock(item, answerBox));
+      card.appendChild(questionBlock(item));
       const revealBtn = el("button", { class: "btn btn-lg secondary", onclick: reveal }, [t("showAnswer")]);
       const gradeRow = el("div", { class: "btn-row center", hidden: true }, [
         el("button", { class: "btn success", onclick: () => grade(true) }, [t("knewIt")]),
