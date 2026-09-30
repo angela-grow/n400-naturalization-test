@@ -109,17 +109,12 @@
   }
 
   const ICON_PATHS = {
-    book: '<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 7h6"/>',
-    clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 13 2 2 4-4"/>',
     cards: '<rect x="3" y="7" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
-    chart: '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>',
     play: '<path d="M7 4.5v15l12-7.5z"/>',
     volume: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/>',
-    check: '<path d="m5 12 5 5L20 7"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
-    star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/>',
   };
   function icon(name) {
     const span = document.createElement("span");
@@ -286,7 +281,7 @@
 
   // ---------- Router ----------
   const VIEWS = {};
-  const NAV_FOR = { senior: "test" };
+  const NAV_FOR = { senior: "test", flashcards: "study" };
   let flashPreset = null;
 
   function render(view) {
@@ -315,74 +310,22 @@
   }
 
   // ---------- Home ----------
+  // One job: get people into a practice test. Progress appears only once there is some.
   VIEWS.home = function () {
     const wrap = el("div", { class: "home" });
-    const track = settings.track;
-
     wrap.appendChild(
       el("section", { class: "hero" }, [
-        el("p", { class: "eyebrow" }, [t("eyebrow")]),
         el("h2", { class: "hero-title" }, [t("heroTitle")]),
         el("p", { class: "hero-sub" }, [t("heroSub")]),
-        el("div", { class: "btn-row hero-cta" }, [
-          el("button", { class: "btn btn-lg btn-cta", onclick: () => render(track === "senior" ? "senior" : "test") }, [icon("play"), t("ctaPractice")]),
-          el("button", { class: "btn btn-lg btn-ghost", onclick: () => render("study") }, [t("ctaStudy")]),
-        ]),
-        el("ul", { class: "trust" }, [
-          el("li", {}, [icon("check"), t("trustOfficial")]),
-          el("li", {}, [icon("check"), t("trustFree")]),
-          el("li", {}, [icon("check"), t("trustAudio")]),
+        el("div", { class: "btn-row" }, [
+          el("button", { class: "btn btn-lg", onclick: () => render("test") }, [icon("play"), t("ctaPractice")]),
+          el("button", { class: "link-btn", onclick: () => render("study") }, [t("ctaStudy")]),
         ]),
       ])
     );
-
-    wrap.appendChild(track ? readinessPanel(track) : trackPicker());
-
-    const trackKey = currentTrack();
-    const modes = [
-      { view: "study", icon: "book", title: t("modeStudyTitle"), desc: t("modeStudyDesc") },
-      { view: "flashcards", icon: "cards", title: t("modeFlashTitle"), desc: t("modeFlashDesc") },
-      {
-        view: trackKey === "senior" ? "senior" : "test",
-        icon: "clipboard",
-        title: trackKey === "senior" ? t("modeSeniorTitle") : t("modeTestTitle"),
-        desc: trackKey === "senior" ? t("modeSeniorDesc") : t("modeTestDesc"),
-      },
-      { view: "stats", icon: "chart", title: t("modeStatsTitle"), desc: t("modeStatsDesc") },
-    ];
-    wrap.appendChild(
-      el("div", { class: "grid" }, modes.map((m) =>
-        el("button", { class: "mode-card", onclick: () => render(m.view) }, [
-          el("div", { class: "mode-icon" }, [icon(m.icon)]),
-          el("h3", {}, [m.title]),
-          el("p", {}, [m.desc]),
-        ])
-      ))
-    );
+    if (Object.keys(loadProgress()).length) wrap.appendChild(readinessPanel(currentTrack()));
     return wrap;
   };
-
-  function trackPicker() {
-    function choose(track) {
-      settings.track = track;
-      saveSettings();
-      render("home");
-    }
-    return el("section", { class: "card track-picker" }, [
-      el("h2", {}, [t("pickTitle")]),
-      el("p", { class: "muted" }, [t("pickSub")]),
-      el("div", { class: "track-options" }, [
-        el("button", { class: "track-option", onclick: () => choose("standard") }, [
-          el("strong", {}, [t("pickStandardTitle")]),
-          el("span", {}, [t("pickStandardDesc")]),
-        ]),
-        el("button", { class: "track-option", onclick: () => choose("senior") }, [
-          el("strong", {}, [t("pickSeniorTitle")]),
-          el("span", {}, [t("pickSeniorDesc")]),
-        ]),
-      ]),
-    ]);
-  }
 
   function readinessPanel(track) {
     const cfg = TRACKS[track];
@@ -396,45 +339,48 @@
     const lines = el("div", { class: "readiness-text" }, [
       el("h2", {}, [t("knowCount", { known: r.known, total: r.total })]),
       el("p", { class: "muted" }, [tests.length ? t("passedRecent", { passed, total: tests.length }) : t("noTestsYet")]),
-      el("p", { class: "track-line" }, [
-        t(track === "senior" ? "trackSenior" : "trackStandard"),
-        " · ",
-        el("button", { class: "link-btn", onclick: () => { settings.track = null; saveSettings(); render("home"); } }, [t("change")]),
-      ]),
     ]);
     const action = weak.length
-      ? el("button", { class: "btn", onclick: () => { flashPreset = { mode: "weak" }; render("flashcards"); } }, [icon("target"), t("reviewWeak", { n: Math.min(weak.length, 10) })])
-      : el("button", { class: "btn", onclick: () => render(track === "senior" ? "senior" : "test") }, [icon("play"), t(r.known ? "takeAnother" : "startFirst")]);
-
-    return el("section", { class: "card readiness" }, [ring, lines, el("div", { class: "readiness-action" }, [action])]);
+      ? el("div", { class: "readiness-action" }, [
+          el("button", { class: "btn secondary", onclick: () => { flashPreset = { mode: "weak" }; render("flashcards"); } }, [icon("target"), t("reviewWeak", { n: Math.min(weak.length, 10) })]),
+        ])
+      : null;
+    return el("section", { class: "card readiness" }, [ring, lines, action]);
   }
 
   // ---------- Study ----------
+  // Study has two ways in: browse the list, or drill flashcards.
+  function studyHeader(active) {
+    return el("div", { class: "view-head" }, [
+      el("h2", { class: "view-title" }, [t("studyTitle")]),
+      el("div", { class: "segmented", role: "group", "aria-label": t("studyTitle") }, [
+        ["study", t("studyListTab")],
+        ["flashcards", t("navFlash")],
+      ].map(([view, label]) =>
+        el("button", { class: active === view ? "active" : "", "aria-pressed": String(active === view), onclick: () => render(view) }, [label])
+      )),
+    ]);
+  }
+
   VIEWS.study = function () {
     const wrap = el("div", {});
-    wrap.appendChild(el("h2", { class: "view-title" }, [t("studyTitle")]));
+    wrap.appendChild(studyHeader("study"));
     wrap.appendChild(el("p", { class: "muted view-sub" }, [t("studySub")]));
 
     const search = el("input", { type: "search", placeholder: t("searchPlaceholder"), "aria-label": t("searchPlaceholder") });
-    const catSelect = el("select", { "aria-label": t("allCategories") }, [
-      el("option", { value: "" }, [t("allCategories")]),
-      ...CATEGORIES.map((c) => el("option", { value: c }, [catLabel(c)])),
-    ]);
     const starChk = el("input", { type: "checkbox" });
     if (settings.track === "senior") starChk.checked = true;
     const starredOnly = el("label", { class: "check-label" }, [starChk, t("starredOnly")]);
 
-    wrap.appendChild(el("div", { class: "search-row" }, [search, catSelect, starredOnly]));
+    wrap.appendChild(el("div", { class: "search-row" }, [search, starredOnly]));
     const results = el("div", {});
     wrap.appendChild(results);
 
     function draw() {
       const q = search.value.trim().toLowerCase();
-      const cat = catSelect.value;
       results.innerHTML = "";
 
       const filtered = QUESTIONS.filter((item) => {
-        if (cat && item.category !== cat) return false;
         if (starChk.checked && !item.starred) return false;
         if (!q) return true;
         const tr = translatedQuestion(item);
@@ -457,12 +403,15 @@
         byCategory[item.category][item.subcategory].push(item);
       });
 
+      // Topics start folded so the page opens as a short outline; any filter unfolds the matches.
+      const filtering = Boolean(q || starChk.checked);
       Object.entries(byCategory).forEach(([category, subs]) => {
         const catBlock = el("div", { class: "category-block" });
-        catBlock.appendChild(el("h2", {}, [catLabel(category)]));
+        catBlock.appendChild(el("h3", {}, [catLabel(category)]));
         Object.entries(subs).forEach(([sub, items]) => {
-          const subBlock = el("div", { class: "subcategory-block" });
-          subBlock.appendChild(el("h3", {}, [subLabel(sub)]));
+          const subBlock = el("details", { class: "topic", open: filtering }, [
+            el("summary", {}, [el("span", {}, [subLabel(sub)]), el("span", { class: "topic-count" }, [String(items.length)])]),
+          ]);
           items.forEach((item) => subBlock.appendChild(qaCard(item)));
           catBlock.appendChild(subBlock);
         });
@@ -498,7 +447,6 @@
     }
 
     search.addEventListener("input", draw);
-    catSelect.addEventListener("change", draw);
     starChk.addEventListener("change", draw);
     draw();
     return wrap;
@@ -511,7 +459,12 @@
 
     function draw() {
       wrap.innerHTML = "";
-      wrap.appendChild(quizRunner(trackKey, () => { trackKey = trackKey === "senior" ? "standard" : "senior"; draw(); }));
+      wrap.appendChild(quizRunner(trackKey, () => {
+        trackKey = trackKey === "senior" ? "standard" : "senior";
+        settings.track = trackKey;
+        saveSettings();
+        draw();
+      }));
     }
     draw();
     return wrap;
@@ -533,11 +486,7 @@
       wrap.appendChild(
         el("div", { class: "card intro-card" }, [
           el("h2", {}, [trackKey === "senior" ? t("seniorTestTitle") : t("testTitle")]),
-          el("ul", {}, [
-            el("li", {}, [t("ruleCount", { count: cfg.count, pool: cfg.pool.length })]),
-            el("li", {}, [t("rulePass", { pass: cfg.passCount })]),
-            el("li", {}, [t("ruleSayIt")]),
-          ]),
+          el("p", { class: "muted" }, [t("rulePass", { pass: cfg.passCount })]),
           canSpeak ? el("label", { class: "check-label" }, [autoRead, t("autoRead")]) : null,
           el("div", { class: "btn-row" }, [
             el("button", { class: "btn btn-lg", onclick: startQuiz }, [icon("play"), t("startTest")]),
@@ -611,9 +560,8 @@
       screen.appendChild(el("p", {}, [passed ? t("passMsg", { pass: cfg.passCount }) : t("failMsg", { pass: cfg.passCount })]));
 
       const buttons = el("div", { class: "btn-row center" });
-      if (passed) buttons.appendChild(el("button", { class: "btn btn-cta", onclick: () => shareScore(correctCount, pool.length) }, [icon("share"), t("shareScore")]));
       buttons.appendChild(el("button", { class: "btn", onclick: startQuiz }, [t("tryAgain")]));
-      buttons.appendChild(el("button", { class: "btn secondary", onclick: () => render("home") }, [t("backHome")]));
+      if (passed) buttons.appendChild(el("button", { class: "btn secondary", onclick: () => shareScore(correctCount, pool.length) }, [icon("share"), t("shareScore")]));
       screen.appendChild(buttons);
 
       if (missed.length) {
@@ -654,12 +602,14 @@
   // ---------- Flashcards ----------
   VIEWS.flashcards = function () {
     const wrap = el("div", {});
+    const body = el("div", {});
+    wrap.appendChild(studyHeader("flashcards"));
+    wrap.appendChild(body);
     const preset = flashPreset || { mode: settings.track === "senior" ? "starred" : "all" };
     flashPreset = null;
     let mode = preset.mode;
     const customDeck = preset.deck || [];
     let deck, pos = 0;
-    let sessionCorrect = 0, sessionTotal = 0;
 
     function source(m) {
       if (m === "starred") return STARRED;
@@ -676,7 +626,7 @@
 
     function draw() {
       stopSpeech();
-      wrap.innerHTML = "";
+      body.innerHTML = "";
       const weakCount = Math.min(weakest(QUESTIONS).length, 10);
       const options = [
         ["all", t("deckAll")],
@@ -684,22 +634,17 @@
         ["weak", t("deckWeak", { n: weakCount })],
       ];
       if (customDeck.length) options.push(["custom", t("deckMissed", { n: customDeck.length })]);
-      wrap.appendChild(
+      body.appendChild(
         el("div", { class: "deck-row" }, [
-          el("div", { class: "segmented", role: "group", "aria-label": t("deckLabel") }, options.map(([key, label]) =>
-            el("button", {
-              class: mode === key ? "active" : "",
-              "aria-pressed": String(mode === key),
-              disabled: key === "weak" && !weakCount ? true : null,
-              onclick: () => setMode(key),
-            }, [label])
+          el("select", { class: "deck-select", "aria-label": t("deckLabel"), onchange: (e) => setMode(e.target.value) }, options.map(([key, label]) =>
+            el("option", { value: key, selected: mode === key, disabled: key === "weak" && !weakCount }, [label])
           )),
-          el("span", { class: "muted small session" }, [t("session", { n: sessionCorrect, total: sessionTotal })]),
+          el("span", { class: "muted small" }, [deck.length ? t("cardOf", { n: (pos % deck.length) + 1, total: deck.length }) : ""]),
         ])
       );
 
       if (!deck.length) {
-        wrap.appendChild(el("div", { class: "empty-state" }, [mode === "weak" ? t("noWeak") : t("noCards")]));
+        body.appendChild(el("div", { class: "empty-state" }, [mode === "weak" ? t("noWeak") : t("noCards")]));
         return;
       }
       const item = deck[pos % deck.length];
@@ -720,8 +665,6 @@
       }
       function grade(correct) {
         recordAnswer(item.id, correct);
-        sessionTotal++;
-        if (correct) sessionCorrect++;
         pos++;
         if (pos % deck.length === 0) deck = shuffle(deck);
         draw();
@@ -733,8 +676,7 @@
       card.appendChild(el("div", { class: "btn-row center" }, [
         el("button", { class: "link-btn", onclick: () => { pos++; draw(); } }, [t("skip")]),
       ]));
-      wrap.appendChild(el("div", { class: "muted small deck-pos" }, [t("cardOf", { n: (pos % deck.length) + 1, total: deck.length })]));
-      wrap.appendChild(card);
+      body.appendChild(card);
       if (settings.autoRead) speak(item.question);
     }
 
@@ -760,7 +702,6 @@
     wrap.appendChild(el("div", { class: "stats-grid" }, [
       statTile(`${r.known}/${r.total}`, t("statKnown")),
       statTile(`${accuracy}%`, t("statAccuracy")),
-      statTile(totalAttempts, t("statAnswers")),
       statTile(history.filter((h) => h.passed).length, t("statPassed")),
     ]));
 
