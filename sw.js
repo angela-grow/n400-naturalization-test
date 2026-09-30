@@ -1,6 +1,6 @@
 // Offline support: cache the app shell, serve it cache-first, refresh in the background.
 // Bump CACHE when shipping changes so returning visitors pick them up.
-const CACHE = "n400-v3";
+const CACHE = "n400-v4";
 const SHELL = [
   "./",
   "index.html",

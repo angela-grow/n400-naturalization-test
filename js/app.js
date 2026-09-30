@@ -8,13 +8,10 @@
   const SETTINGS_KEY = "n400.settings.v1";
   const SITE_URL = "https://angela-grow.github.io/n400-naturalization-test/";
 
-  const STARRED = QUESTIONS.filter((q) => q.starred);
   const CATEGORIES = [...new Set(QUESTIONS.map((q) => q.category))];
 
-  const TRACKS = {
-    standard: { pool: QUESTIONS, count: 20, passCount: 12, key: "test20" },
-    senior: { pool: STARRED, count: 10, passCount: 6, key: "senior10" },
-  };
+  // The standard test: up to 20 of the 128 questions asked, 12 correct to pass.
+  const TEST = { count: 20, passCount: 12, key: "test20" };
 
   // ---------- Persistence ----------
   function readJSON(key, fallback) {
@@ -48,8 +45,9 @@
     writeJSON(HISTORY_KEY, h.slice(0, 50));
   }
 
-  const settings = Object.assign({ lang: detectLang(), track: null, autoRead: false }, readJSON(SETTINGS_KEY, {}));
+  const settings = Object.assign({ lang: detectLang(), autoRead: false }, readJSON(SETTINGS_KEY, {}));
   function saveSettings() { writeJSON(SETTINGS_KEY, settings); }
+  delete settings.track; // left over from the retired 65/20 option
 
   function detectLang() {
     const nav = (navigator.language || "en").toLowerCase();
@@ -156,10 +154,10 @@
       .sort((a, b) => b.e.incorrect / (b.e.correct + b.e.incorrect) - a.e.incorrect / (a.e.correct + a.e.incorrect) || b.e.incorrect - a.e.incorrect)
       .map(({ q }) => q);
   }
-  function recentTests(trackKey, n) {
-    return loadHistory().filter((h) => h.mode === TRACKS[trackKey].key).slice(0, n);
+  // Only standard-test results count; older saves may also hold 65/20 results.
+  function testHistory() {
+    return loadHistory().filter((h) => h.mode === TEST.key);
   }
-  function currentTrack() { return settings.track || "standard"; }
 
   // ---------- Speech ----------
   const canSpeak = "speechSynthesis" in window;
@@ -206,7 +204,7 @@
   // Question block shared by the test runner and flashcards: text, translation, listen + speak-answer controls.
   function questionBlock(item, answerBox) {
     const frag = el("div", { class: "question-block" });
-    frag.appendChild(el("div", { class: "cat-tag" }, [catLabel(item.category), item.starred ? " ★" : null]));
+    frag.appendChild(el("div", { class: "cat-tag" }, [catLabel(item.category)]));
     frag.appendChild(el("div", { class: "question-text", lang: "en" }, [item.question]));
     const tr = translatedQuestion(item);
     if (tr) frag.appendChild(el("div", { class: "question-translation" }, [tr]));
@@ -281,7 +279,7 @@
 
   // ---------- Router ----------
   const VIEWS = {};
-  const NAV_FOR = { senior: "test", flashcards: "study" };
+  const NAV_FOR = { flashcards: "study" };
   let flashPreset = null;
 
   function render(view) {
@@ -323,17 +321,16 @@
         ]),
       ])
     );
-    if (Object.keys(loadProgress()).length) wrap.appendChild(readinessPanel(currentTrack()));
+    if (Object.keys(loadProgress()).length) wrap.appendChild(readinessPanel());
     return wrap;
   };
 
-  function readinessPanel(track) {
-    const cfg = TRACKS[track];
-    const r = readiness(cfg.pool);
+  function readinessPanel() {
+    const r = readiness(QUESTIONS);
     const pct = Math.round((r.known / r.total) * 100);
-    const tests = recentTests(track, 5);
+    const tests = testHistory().slice(0, 5);
     const passed = tests.filter((h) => h.passed).length;
-    const weak = weakest(cfg.pool);
+    const weak = weakest(QUESTIONS);
 
     const ring = el("div", { class: "ring", style: `--pct:${pct}`, role: "img", "aria-label": `${pct}%` }, [el("span", {}, [`${pct}%`])]);
     const lines = el("div", { class: "readiness-text" }, [
@@ -368,11 +365,7 @@
     wrap.appendChild(el("p", { class: "muted view-sub" }, [t("studySub")]));
 
     const search = el("input", { type: "search", placeholder: t("searchPlaceholder"), "aria-label": t("searchPlaceholder") });
-    const starChk = el("input", { type: "checkbox" });
-    if (settings.track === "senior") starChk.checked = true;
-    const starredOnly = el("label", { class: "check-label" }, [starChk, t("starredOnly")]);
-
-    wrap.appendChild(el("div", { class: "search-row" }, [search, starredOnly]));
+    wrap.appendChild(el("div", { class: "search-row" }, [search]));
     const results = el("div", {});
     wrap.appendChild(results);
 
@@ -381,7 +374,6 @@
       results.innerHTML = "";
 
       const filtered = QUESTIONS.filter((item) => {
-        if (starChk.checked && !item.starred) return false;
         if (!q) return true;
         const tr = translatedQuestion(item);
         return (
@@ -403,8 +395,8 @@
         byCategory[item.category][item.subcategory].push(item);
       });
 
-      // Topics start folded so the page opens as a short outline; any filter unfolds the matches.
-      const filtering = Boolean(q || starChk.checked);
+      // Topics start folded so the page opens as a short outline; a search unfolds the matches.
+      const filtering = Boolean(q);
       Object.entries(byCategory).forEach(([category, subs]) => {
         const catBlock = el("div", { class: "category-block" });
         catBlock.appendChild(el("h3", {}, [catLabel(category)]));
@@ -426,7 +418,6 @@
         el("span", { class: "qa-num" }, [String(item.id)]),
         el("span", { class: "qa-text" }, [
           el("span", { lang: "en" }, [item.question]),
-          item.starred ? el("span", { class: "star", title: t("starTitle") }, [" ★"]) : null,
           tr ? el("span", { class: "qa-translation" }, [tr]) : null,
         ]),
       ]);
@@ -447,57 +438,37 @@
     }
 
     search.addEventListener("input", draw);
-    starChk.addEventListener("change", draw);
     draw();
     return wrap;
   };
 
   // ---------- Practice test ----------
-  function testView(initialTrack) {
-    const wrap = el("div", {});
-    let trackKey = initialTrack;
+  VIEWS.test = () => quizRunner();
 
-    function draw() {
-      wrap.innerHTML = "";
-      wrap.appendChild(quizRunner(trackKey, () => {
-        trackKey = trackKey === "senior" ? "standard" : "senior";
-        settings.track = trackKey;
-        saveSettings();
-        draw();
-      }));
-    }
-    draw();
-    return wrap;
-  }
-  VIEWS.test = () => testView(currentTrack());
-  VIEWS.senior = () => testView("senior");
-
-  function quizRunner(trackKey, switchTrack) {
-    const cfg = TRACKS[trackKey];
+  function quizRunner() {
+    const cfg = TEST;
     const wrap = el("div", {});
     let pool, idx, correctCount, missed;
 
     function intro() {
       wrap.innerHTML = "";
-      const other = trackKey === "senior" ? t("switchToStandard") : t("switchToSenior");
       const autoRead = el("input", { type: "checkbox" });
       autoRead.checked = settings.autoRead;
       autoRead.addEventListener("change", () => { settings.autoRead = autoRead.checked; saveSettings(); });
       wrap.appendChild(
         el("div", { class: "card intro-card" }, [
-          el("h2", {}, [trackKey === "senior" ? t("seniorTestTitle") : t("testTitle")]),
+          el("h2", {}, [t("testTitle")]),
           el("p", { class: "muted" }, [t("rulePass", { pass: cfg.passCount })]),
           canSpeak ? el("label", { class: "check-label" }, [autoRead, t("autoRead")]) : null,
           el("div", { class: "btn-row" }, [
             el("button", { class: "btn btn-lg", onclick: startQuiz }, [icon("play"), t("startTest")]),
-            el("button", { class: "link-btn", onclick: switchTrack }, [other]),
           ]),
         ])
       );
     }
 
     function startQuiz() {
-      pool = shuffle(cfg.pool).slice(0, cfg.count);
+      pool = shuffle(QUESTIONS).slice(0, cfg.count);
       idx = 0;
       correctCount = 0;
       missed = [];
@@ -605,14 +576,13 @@
     const body = el("div", {});
     wrap.appendChild(studyHeader("flashcards"));
     wrap.appendChild(body);
-    const preset = flashPreset || { mode: settings.track === "senior" ? "starred" : "all" };
+    const preset = flashPreset || { mode: "all" };
     flashPreset = null;
     let mode = preset.mode;
     const customDeck = preset.deck || [];
     let deck, pos = 0;
 
     function source(m) {
-      if (m === "starred") return STARRED;
       if (m === "weak") return weakest(QUESTIONS).slice(0, 10);
       if (m === "custom") return customDeck;
       return QUESTIONS;
@@ -630,7 +600,6 @@
       const weakCount = Math.min(weakest(QUESTIONS).length, 10);
       const options = [
         ["all", t("deckAll")],
-        ["starred", t("deckStarred")],
         ["weak", t("deckWeak", { n: weakCount })],
       ];
       if (customDeck.length) options.push(["custom", t("deckMissed", { n: customDeck.length })]);
@@ -691,13 +660,12 @@
     wrap.appendChild(el("h2", { class: "view-title" }, [t("statsTitle")]));
     const progress = loadProgress();
     const entries = Object.entries(progress);
-    const history = loadHistory();
+    const history = testHistory();
 
     const totalAttempts = entries.reduce((s, [, v]) => s + v.correct + v.incorrect, 0);
     const totalCorrect = entries.reduce((s, [, v]) => s + v.correct, 0);
     const accuracy = totalAttempts ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
-    const track = currentTrack();
-    const r = readiness(TRACKS[track].pool);
+    const r = readiness(QUESTIONS);
 
     wrap.appendChild(el("div", { class: "stats-grid" }, [
       statTile(`${r.known}/${r.total}`, t("statKnown")),
@@ -743,7 +711,7 @@
         el("h3", {}, [t("recentTests")]),
         el("ul", { class: "history-list" }, history.slice(0, 8).map((h) =>
           el("li", {}, [
-            el("span", {}, [fmt.format(new Date(h.date)), " · ", h.mode === "senior10" ? t("seniorShort") : t("standardShort")]),
+            el("span", {}, [fmt.format(new Date(h.date))]),
             el("span", { class: h.passed ? "pass-text" : "fail-text" }, [`${h.score}/${h.total} `, h.passed ? t("pass") : t("notYet")]),
           ])
         )),

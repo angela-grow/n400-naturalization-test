@@ -6,10 +6,10 @@ A free, static study app for the 2025 version of the USCIS civics test used in t
 
 ## Features
 
-- **Practice Test**: realistic, self-graded rounds for the standard test (128 questions, 20 asked, 12 to pass) or the 65/20 test (20 starred questions, 10 asked, 6 to pass), with a shareable result when you pass
+- **Practice Test**: realistic, self-graded rounds of the standard test (20 of the 128 questions, 12 correct to pass), with a shareable result when you pass
 - **Readiness on the home page**: once you've practiced, see how many questions you know, your recent pass rate, and a one-tap review of your weakest questions
 - **Audio**: hear each question read aloud (optionally automatic), and answer out loud with speech recognition where the browser supports it (Chrome, Edge, Safari)
-- **Study**: every question, folded by topic, with search and a starred-only filter. Switch to **Flashcards** to drill all 128, the 20 starred questions, your weakest questions, or the ones you just missed
+- **Study**: every question, folded by topic, with search. Switch to **Flashcards** to drill all 128, your weakest questions, or the ones you just missed
 - **Progress**: accuracy by topic, recent tests, and most-missed questions (stored in `localStorage`)
 - **Languages**: interface in English, Spanish, Chinese (Simplified), Vietnamese and Tagalog, with each question translated beneath the official English wording
 - **Installable and offline**: a PWA with a service worker
