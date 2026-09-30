@@ -1,6 +1,7 @@
-// Offline support: cache the app shell, serve it cache-first, refresh in the background.
-// Bump CACHE when shipping changes so returning visitors pick them up.
-const CACHE = "n400-v5";
+// Offline support. Network first, so every online visit gets the latest release;
+// the cache is only a fallback for when there's no connection.
+// Bump CACHE when shipping changes so old caches are cleared.
+const CACHE = "n400-v6";
 const SHELL = [
   "./",
   "index.html",
@@ -15,7 +16,12 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" skips the browser's HTTP cache, so the new cache never holds stale files.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -30,15 +36,15 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(req, { ignoreSearch: true });
-      const network = fetch(req)
-        .then((res) => {
-          if (res.ok) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    // "no-cache" revalidates with the server (a cheap 304 when nothing changed).
+    fetch(req, { cache: "no-cache" })
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req, { ignoreSearch: true }))
   );
 });
